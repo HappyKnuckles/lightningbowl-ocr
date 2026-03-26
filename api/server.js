@@ -23,11 +23,24 @@ const computerVisionClient = new ComputerVisionClient(
 const blobServiceClient = new BlobServiceClient(sasUrl);
 const containerClient = blobServiceClient.getContainerClient('images');
 
-const ALLOWED_ORIGINS = [
-  'https://test.lightningbowl.de',
-  'https://lightningbowl.de',
-  // 'http://localhost:3000' // Uncomment for local testing
-];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((url) => url.trim())
+  .filter((url) => {
+    if (!url) {
+      return false;
+    }
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+if (ALLOWED_ORIGINS.length === 0) {
+  console.warn('No valid ALLOWED_ORIGINS configured; CORS requests with Origin header will be rejected.');
+}
 
 // --- Rate Limiting Setup ---
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
