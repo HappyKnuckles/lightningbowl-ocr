@@ -23,11 +23,18 @@ const computerVisionClient = new ComputerVisionClient(
 const blobServiceClient = new BlobServiceClient(sasUrl);
 const containerClient = blobServiceClient.getContainerClient('images');
 
-const ALLOWED_ORIGINS = [
-  'https://test.lightningbowl.de',
-  'https://lightningbowl.de',
-  // 'http://localhost:3000' // Uncomment for local testing
-];
+const ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS
+  ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+      .map((url) => url.trim())
+      .filter((url) => {
+        try {
+          new URL(url);
+          return true;
+        } catch {
+          return false;
+        }
+      })
+  : ['https://test.lightningbowl.de', 'https://lightningbowl.de'];
 
 // --- Rate Limiting Setup ---
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
