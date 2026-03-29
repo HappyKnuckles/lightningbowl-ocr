@@ -38,8 +38,27 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
     }
   });
 
-if (ALLOWED_ORIGINS.length === 0) {
-  console.warn('No valid ALLOWED_ORIGINS configured; CORS requests with Origin header will be rejected.');
+const ALLOWED_ORIGIN_PATTERNS = (process.env.ALLOWED_ORIGIN_PATTERNS || '')
+  .split(',')
+  .map((pattern) => pattern.trim())
+  .filter(Boolean)
+  .reduce((acc, pattern) => {
+    try {
+      // Anchor patterns to prevent partial matches (e.g. "vercel.app" matching "evil-vercel.app.com")
+      acc.push(new RegExp(`^${pattern}$`));
+    } catch {
+      console.warn(`Invalid ALLOWED_ORIGIN_PATTERNS entry (skipped): ${pattern}`);
+    }
+    return acc;
+  }, []);
+
+if (ALLOWED_ORIGINS.length === 0 && ALLOWED_ORIGIN_PATTERNS.length === 0) {
+  console.warn('No valid ALLOWED_ORIGINS or ALLOWED_ORIGIN_PATTERNS configured; CORS requests with Origin header will be rejected.');
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
 }
 
 // --- Rate Limiting Setup ---
@@ -125,7 +144,7 @@ module.exports = async function (req, res) {
   setSecurityHeaders(res);
   
   const origin = req.headers.origin;
-  if (ALLOWED_ORIGINS.includes(origin)) {
+  if (isOriginAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -136,7 +155,7 @@ module.exports = async function (req, res) {
     return;
   }
 
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && !isOriginAllowed(origin)) {
     res.status(403).send('Origin not allowed');
     return;
   }
