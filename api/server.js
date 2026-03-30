@@ -23,35 +23,32 @@ const computerVisionClient = new ComputerVisionClient(
 const blobServiceClient = new BlobServiceClient(sasUrl);
 const containerClient = blobServiceClient.getContainerClient('images');
 
-const ALLOWED_ORIGIN_ENTRIES = (process.env.ALLOWED_ORIGINS || '')
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
-  .map((entry) => entry.trim())
-  .filter(Boolean);
-
-const ALLOWED_ORIGINS = [];
-const ALLOWED_ORIGIN_PATTERNS = [];
-
-for (const entry of ALLOWED_ORIGIN_ENTRIES) {
-  try {
-    new URL(entry);
-    ALLOWED_ORIGINS.push(entry);
-  } catch {
-    try {
-      // Treat non-URL entries as regex patterns and anchor to avoid partial matches.
-      ALLOWED_ORIGIN_PATTERNS.push(new RegExp(`^${entry}$`));
-    } catch {
-      console.warn(`Invalid ALLOWED_ORIGINS entry (skipped): ${entry}`);
+  .map((url) => url.trim())
+  .filter((url) => {
+    if (!url) {
+      return false;
     }
-  }
-}
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      console.warn(`Invalid ALLOWED_ORIGINS URL entry (skipped): ${url}`);
+      return false;
+    }
+  });
 
-if (ALLOWED_ORIGINS.length === 0 && ALLOWED_ORIGIN_PATTERNS.length === 0) {
-  console.warn('No valid ALLOWED_ORIGINS configured; CORS requests with Origin header will be rejected.');
+const PREVIEW_DEPLOYMENT_ORIGIN_REGEX =
+  /^https:\/\/lightningbowl-[a-z0-9-]+-nicos-projects-1c3811a7\.vercel\.app$/;
+
+if (ALLOWED_ORIGINS.length === 0) {
+  console.warn('No valid ALLOWED_ORIGINS configured; regular app origins will be rejected and only fixed Vercel preview origins are allowed.');
 }
 
 function isOriginAllowed(origin) {
   if (!origin) return false;
-  return ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
+  return ALLOWED_ORIGINS.includes(origin) || PREVIEW_DEPLOYMENT_ORIGIN_REGEX.test(origin);
 }
 
 // --- Rate Limiting Setup ---
