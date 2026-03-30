@@ -34,12 +34,21 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
       new URL(url);
       return true;
     } catch {
+      console.warn(`Invalid ALLOWED_ORIGINS URL entry (skipped): ${url}`);
       return false;
     }
   });
 
+const PREVIEW_DEPLOYMENT_ORIGIN_REGEX =
+  /^https:\/\/lightningbowl-[a-z0-9-]+-nicos-projects-1c3811a7\.vercel\.app$/;
+
 if (ALLOWED_ORIGINS.length === 0) {
-  console.warn('No valid ALLOWED_ORIGINS configured; CORS requests with Origin header will be rejected.');
+  console.warn('No valid ALLOWED_ORIGINS configured; regular app origins will be rejected and only fixed Vercel preview origins are allowed.');
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.includes(origin) || PREVIEW_DEPLOYMENT_ORIGIN_REGEX.test(origin);
 }
 
 // --- Rate Limiting Setup ---
@@ -125,7 +134,7 @@ module.exports = async function (req, res) {
   setSecurityHeaders(res);
   
   const origin = req.headers.origin;
-  if (ALLOWED_ORIGINS.includes(origin)) {
+  if (isOriginAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -136,7 +145,7 @@ module.exports = async function (req, res) {
     return;
   }
 
-  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && !isOriginAllowed(origin)) {
     res.status(403).send('Origin not allowed');
     return;
   }
