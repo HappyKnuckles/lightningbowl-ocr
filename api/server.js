@@ -23,37 +23,30 @@ const computerVisionClient = new ComputerVisionClient(
 const blobServiceClient = new BlobServiceClient(sasUrl);
 const containerClient = blobServiceClient.getContainerClient('images');
 
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+const ALLOWED_ORIGIN_ENTRIES = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
-  .map((url) => url.trim())
-  .filter((url) => {
-    if (!url) {
-      return false;
-    }
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  });
+  .map((entry) => entry.trim())
+  .filter(Boolean);
 
-const ALLOWED_ORIGIN_PATTERNS = (process.env.ALLOWED_ORIGIN_PATTERNS || '')
-  .split(',')
-  .map((pattern) => pattern.trim())
-  .filter(Boolean)
-  .reduce((acc, pattern) => {
+const ALLOWED_ORIGINS = [];
+const ALLOWED_ORIGIN_PATTERNS = [];
+
+for (const entry of ALLOWED_ORIGIN_ENTRIES) {
+  try {
+    new URL(entry);
+    ALLOWED_ORIGINS.push(entry);
+  } catch {
     try {
-      // Anchor patterns to prevent partial matches (e.g. "vercel.app" matching "evil-vercel.app.com")
-      acc.push(new RegExp(`^${pattern}$`));
+      // Treat non-URL entries as regex patterns and anchor to avoid partial matches.
+      ALLOWED_ORIGIN_PATTERNS.push(new RegExp(`^${entry}$`));
     } catch {
-      console.warn(`Invalid ALLOWED_ORIGIN_PATTERNS entry (skipped): ${pattern}`);
+      console.warn(`Invalid ALLOWED_ORIGINS entry (skipped): ${entry}`);
     }
-    return acc;
-  }, []);
+  }
+}
 
 if (ALLOWED_ORIGINS.length === 0 && ALLOWED_ORIGIN_PATTERNS.length === 0) {
-  console.warn('No valid ALLOWED_ORIGINS or ALLOWED_ORIGIN_PATTERNS configured; CORS requests with Origin header will be rejected.');
+  console.warn('No valid ALLOWED_ORIGINS configured; CORS requests with Origin header will be rejected.');
 }
 
 function isOriginAllowed(origin) {
